@@ -11,6 +11,7 @@ class FeedProcessEvent extends CancelableEvent
 
     public $feed;
     public $feedData;
+    public $existingElements;
     public $contentData;
     public $element;
 }
