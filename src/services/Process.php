@@ -147,6 +147,9 @@ class Process extends Component
         $this->_data = $event->feedData;
         $return['existingElements'] = $event->existingElements;
 
+        // Return the feed data
+        $return['feedData'] = $this->_data;
+
         Plugin::info('Finished preparing for feed processing.');
 
         return $return;
