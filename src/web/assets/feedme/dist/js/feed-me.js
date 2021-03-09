@@ -1,4 +1,4 @@
-/*!   - 2019-04-24 */
+/*!   - 2020-11-09 */
 (function($){
 
 /**
@@ -3720,9 +3720,10 @@ $(function() {
 
     // Toggle the Entry Type field when changing the section select
     $(document).on('change', '.element-parent-group select', function() {
-        var sections = $(this).parents('.element-sub-group').data('items');
-        var entryType = 'item_' + $(this).val();
-        var entryTypes = sections[entryType];
+        var sections = $(this).parents('.element-sub-group').data('items') || {};
+        var groupId = $(this).val();
+        var entryType = 'item_' + groupId;
+        var entryTypes = sections[entryType] || [];
 
         var currentValue = $('.element-child-group select').val();
 
@@ -3741,9 +3742,33 @@ $(function() {
         } else {
             $($('.element-child-group select').children()[1]).attr('selected', true);
         }
+
+        // Show/hide the import settings depending on whether this group is a singleton
+        var elementType = $('#elementType').val();
+        if (
+            Craft.FeedMe.elementTypes[elementType] &&
+            Craft.FeedMe.elementTypes[elementType].groups[groupId] &&
+            Craft.FeedMe.elementTypes[elementType].groups[groupId].isSingleton
+        ) {
+            if (!$('#singleton').val()) {
+                $('#singleton').val('1');
+                $('#is-create').attr({checked: false, disabled: true});
+                $('#is-update').attr({checked: true, disabled: true});
+                $('#is-disable-globally').attr({checked: false, disabled: true});
+                $('#is-disable-site').attr({checked: false, disabled: true});
+                $('#is-delete').attr({checked: false, disabled: true});
+            }
+        } else if ($('#singleton').val()) {
+            $('#singleton').val('');
+            $('#is-create').attr({checked: true, disabled: false});
+            $('#is-update').attr({checked: false, disabled: false});
+            $('#is-disable-globally').attr({checked: false, disabled: false});
+            $('#is-disable-site').attr({checked: false, disabled: false});
+            $('#is-delete').attr({checked: false, disabled: false});
+        }
     });
 
-    $('.element-parent-group select').trigger('change');
+    $('.element-parent-group select:visible').trigger('change');
 
 
     //
@@ -3880,124 +3905,6 @@ $(function() {
 
         $(this).parents('form').submit();
     });
-
-    // A nice loading animation on the success page for feeds
-    new Craft.FeedMe.TaskProgress();
-
 });
-
-
-(function() {
-
-var feedMeSuccessHtml = '<div><span data-icon="check"></span> ' +
-        Craft.t('feed-me', 'Processing complete!') +
-    '</div>' +
-    '<div class="feedme-success-btns">' +
-        '<a class="btn submit" href="' + Craft.getUrl('feed-me/feeds') + '">Back to Feeds</a>' +
-        '<a class="btn" href="' + Craft.getUrl('feed-me/logs') + '">View logs</a>' +
-    '</div>';
-
-Craft.FeedMe.TaskProgress = Garnish.Base.extend({
-    runningTask: null,
-
-    $spinnerScreen: null,
-    $pendingScreen: null,
-    $runningScreen: null,
-
-    init: function() {
-        this.$spinnerScreen = $('.feedme-status-spinner');
-        this.$pendingScreen = $('.feedme-fullpage.fullpage-waiting');
-        this.$runningScreen = $('.feedme-fullpage.fullpage-running');
-
-        this.updateTasks();
-    },
-
-    updateTasks: function() {
-        Craft.postActionRequest('queue/get-job-info', $.proxy(function(taskInfo, textStatus) {
-            if (textStatus == 'success') {
-                this.showTaskInfo(taskInfo[0]);
-            }
-        }, this))
-    },
-
-    showTaskInfo: function(taskInfo) {
-        this.$spinnerScreen.addClass('hidden');
-
-        if (taskInfo) {
-            this.$runningScreen.removeClass('hidden');
-
-            if (this.runningTask) {
-                this.runningTask.updateStatus(taskInfo);
-            } else {
-                this.runningTask = new Craft.FeedMe.TaskProgress.Task(taskInfo);
-            }
-
-            if (taskInfo.status != 'error') {
-                // Keep checking for the task status every 500ms
-                setTimeout($.proxy(this, 'updateTasks'), 500);
-            }
-        } else {
-            if (this.runningTask) {
-                // Task has now completed, show the UI
-                this.runningTask.complete();
-            } else if (this.$pendingScreen.hasClass('cp-triggered')) {
-                // If this case has happened, its often the task has finished so quickly before an Ajax request
-                // to the tasks controller has a chance to fire. But, we track when the user submits the 'run' action
-                // through a flash variable. Technically, its finished - otherwise we end up showing the 'pending'
-                // screen, which is a little confusing to the user. Simply show its completed
-                this.$runningScreen.removeClass('hidden');
-
-                this.$runningScreen.find('.progress-container').html(feedMeSuccessHtml);
-            } else {
-                // Show the pending screen, there are no tasks in queue, and a task isn't currently running
-                this.$pendingScreen.removeClass('hidden');
-            }
-        }
-
-    }
-});
-
-Craft.FeedMe.TaskProgress.Task = Garnish.Base.extend({
-    progressBar: null,
-
-    init: function(info) {
-        this.$statusContainer = $('.feedme-fullpage.fullpage-running .progress-container');
-        this.$statusContainer.empty();
-
-        this.progressBar = new Craft.ProgressBar(this.$statusContainer);
-        this.progressBar.showProgressBar();
-
-        this.updateStatus(info);
-    },
-
-    updateStatus: function(info) {
-        this.progressBar.setProgressPercentage(info.progress);
-
-        if (info.status == 'error') {
-            this.fail();
-        }
-    },
-
-    complete: function() {
-        this.progressBar.setProgressPercentage(100);
-        setTimeout($.proxy(this, 'success'), 300);
-    },
-
-    success: function() {
-        this.$statusContainer.html(feedMeSuccessHtml);
-    },
-
-    fail: function() {
-        this.$statusContainer.html(
-            '<div class="error">' +
-            Craft.t('feed-me', 'Processing failed.') + ' ' +
-            '<a class="go" href="' + Craft.getUrl('feed-me/logs') + '">' + Craft.t('feed-me', 'View logs') + '</a>' +
-            '</div>'
-        );
-    },
-
-});
-
-})();
 
 })(jQuery);
